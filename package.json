@@ -1,6 +1,13 @@
 {
-  "name": "sadeem-backend",
+  "name": "store-analyzer-backend",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^123.0.0",
+    "puppeteer-core": "^22.0.0"
+  }
 }
