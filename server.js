@@ -1,59 +1,48 @@
 const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const { chromium } = require("playwright");
+const { chromium } = require("@playwright/test");
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json({ limit: "20mb" }));
+app.use(express.json({ limit: "10mb" }));
 
+// Test basic route
 app.get("/", (req, res) => {
-  res.json({ ok: true, message: "Playwright Backend Running" });
+  res.json({ ok: true, message: "Playwright backend is running!" });
 });
 
-app.post("/analyze", async (req, res) => {
-  const url = req.body?.url;
-
-  if (!url) {
-    return res.status(400).json({ ok: false, error: "Missing 'url'" });
-  }
-
+// Screenshot endpoint
+app.post("/api/screenshot", async (req, res) => {
   try {
+    const url = req.body?.url;
+    if (!url) {
+      return res.status(400).json({ ok: false, error: "URL is required" });
+    }
+
+    // Launch the browser
     const browser = await chromium.launch({
       headless: true,
-      args: ["--no-sandbox"]
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
     const page = await browser.newPage();
-    await page.setViewportSize({ width: 1280, height: 1500 });
+    await page.goto(url, { waitUntil: "networkidle" });
 
-    await page.goto(url, {
-      waitUntil: "networkidle",
-      timeout: 60000
-    });
-
-    const screenshot = await page.screenshot({ fullPage: true });
-
-    const html = await page.content();
-    const title = await page.title();
-
+    const image = await page.screenshot({ fullPage: true });
     await browser.close();
 
     res.json({
       ok: true,
-      title,
-      screenshot_base64: screenshot.toString("base64"),
-      html
+      screenshot: image.toString("base64")
     });
+
   } catch (err) {
-    return res.status(500).json({
+    console.error(err);
+    res.status(500).json({
       ok: false,
       error: err.message
     });
   }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () =>
-  console.log("Playwright Store Analyzer running on port " + PORT)
-);
+// Render uses PORT from env
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
