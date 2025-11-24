@@ -1,15 +1,12 @@
-# Store Analyzer Backend
+# Playwright Store Analyzer Backend
 
-Backend to analyze store pages using Puppeteer screenshot + Gemini AI.
+- Full page screenshot
+- HTML extraction
+- Title extraction
+- Works perfectly on Render Free tier
 
-## Endpoints
-
-### GET /
-Health check.
-
-### POST /analyze
+## POST /analyze
 Body:
-```json
 {
   "url": "https://example.com"
 }
