@@ -1,61 +1,45 @@
 // api/analyze-store.js
-
-const fetch = require("node-fetch");
-
 module.exports = async (req, res) => {
-  // نسمح فقط بالـ POST
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  let body = req.body;
-  if (typeof body === "string") {
-    try {
-      body = JSON.parse(body);
-    } catch (e) {
-      return res.status(400).json({ ok: false, error: "Invalid JSON" });
-    }
-  }
-
+  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body;
   const url = body?.url;
+
   if (!url) {
-    return res.status(400).json({ ok: false, error: "Missing URL" });
+    return res.status(400).json({ ok: false, error: "url is required" });
   }
 
+  // مفتاح Gemini
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ ok: false, error: "Missing GEMINI_API_KEY" });
   }
 
   try {
-    // 1️⃣ نطلب Screenshot من Browserless (رهيبين ومجاني)
-    const screenshot = await fetch(
-      "https://chrome.browserless.io/screenshot?token=demo", // free public demo token
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url,
-          options: {
-            fullPage: true,
-            waitFor: "networkidle2"
-          }
-        })
-      }
-    );
+    // 1) أخذ Screenshot من موقع مجاني (URLBox)
+    const screenshotUrl =
+      `https://api.urlbox.io/v1/[public]/png?url=${encodeURIComponent(url)}&width=1280&height=2000&full_page=true&encoding=base64`;
 
-    const base64Image = await screenshot.text(); // Browserless يرجع Base64 مباشر
+    const screenshotRes = await fetch(screenshotUrl);
+    const screenshotJson = await screenshotRes.json();
 
-    // 2️⃣ نرسل الصورة لـ Gemini
-    const prompt = `
-      أنت خبير تحسين متاجر إلكترونية (CRO + UX + تسويق).
-      حلّل صفحة المتجر من حيث وضوح العرض، الثقة، تجربة المستخدم،
-      الـ CTA، سرعة الفهم، العناصر المشتتة.
-      أرجع النتيجة بصيغة JSON نصّي يحتوي:
-      summary, issues, recommendations, seo_score, ux_score, trust_score.
-    `;
+    const base64Image = screenshotJson.base64;
 
-    const geminiResponse = await fetch(
+    if (!base64Image) {
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to capture screenshot"
+      });
+    }
+
+    // 2) إرسال الصورة إلى Gemini
+    const prompt =
+      "حلّل هذا المتجر الإلكتروني من ناحية تجربة المستخدم، الثقة، وضوح العرض، مشاكل الشراء، والتحسينات الممكنة. " +
+      "أعد النتيجة بصيغة JSON نصّي يحتوي: summary, issues, recommendations, seo_score, ux_score, trust_score.";
+
+    const geminiRes = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey,
       {
         method: "POST",
@@ -69,7 +53,7 @@ module.exports = async (req, res) => {
                 {
                   inline_data: {
                     mime_type: "image/png",
-                    data: base64Image.replace("data:image/png;base64,", "")
+                    data: base64Image
                   }
                 }
               ]
@@ -79,19 +63,15 @@ module.exports = async (req, res) => {
       }
     );
 
-    const geminiJson = await geminiResponse.json();
-    const text =
-      geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "No output.";
+    const geminiJson = await geminiRes.json();
+    const text = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     return res.status(200).json({
       ok: true,
       analysis_text: text,
       raw: geminiJson
     });
-  } catch (error) {
-    return res.status(500).json({
-      ok: false,
-      error: error.message
-    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 };
