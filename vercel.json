@@ -1,9 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/ping.js", "use": "@vercel/node" }
-  ],
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "routes": [
-    { "src": "/api/ping", "dest": "api/ping.js" }
+    { "src": "/api/(.*)", "dest": "/api/$1.js" }
   ]
 }
