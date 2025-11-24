@@ -1,15 +1,13 @@
-# Sadeem Puppeteer Backend (Render)
+# Store Analyzer Backend
 
-This backend provides:
-- Full Page Screenshot using Puppeteer
-- JSON response with Base64 image
+Backend to analyze store pages using Puppeteer screenshot + Gemini AI.
 
 ## Endpoints
 
 ### GET /
 Health check.
 
-### POST /screenshot
+### POST /analyze
 Body:
 ```json
 {
